@@ -25,14 +25,14 @@ package org.jvnet.hudson.update_center;
 
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
-import org.apache.commons.lang.StringEscapeUtils;
+
+import org.apache.maven.index.ArtifactInfo;
 import org.dom4j.Document;
 import org.dom4j.DocumentException;
 import org.dom4j.DocumentFactory;
 import org.dom4j.Element;
 import org.dom4j.Node;
 import org.dom4j.io.SAXReader;
-import org.sonatype.nexus.index.ArtifactInfo;
 
 import java.io.IOException;
 import java.text.SimpleDateFormat;
@@ -286,10 +286,6 @@ public class Plugin {
             return null;
 
         String excerpt = m.group(1);
-
-        // escape malicious HTML
-        excerpt = StringEscapeUtils.escapeHtml(excerpt);
-
         String oneLiner = NEWLINE_PATTERN.matcher(excerpt).replaceAll(" ");
         excerpt = HYPERLINK_PATTERN.matcher(oneLiner).replaceAll("<a href='$2'>$1</a>");
         if (latest.isAlphaOrBeta())

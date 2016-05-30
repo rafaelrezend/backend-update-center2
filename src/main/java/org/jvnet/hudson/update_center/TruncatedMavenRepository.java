@@ -1,11 +1,12 @@
 package org.jvnet.hudson.update_center;
 
 import hudson.util.VersionNumber;
+
 import org.apache.maven.artifact.resolver.AbstractArtifactResolutionException;
+import org.apache.maven.index.ArtifactInfo;
+import org.apache.maven.index.context.ExistingLuceneIndexMismatchException;
 import org.codehaus.plexus.PlexusContainerException;
 import org.codehaus.plexus.component.repository.exception.ComponentLookupException;
-import org.sonatype.nexus.index.ArtifactInfo;
-import org.sonatype.nexus.index.context.UnsupportedExistingLuceneIndexException;
 
 import java.io.File;
 import java.io.IOException;
@@ -40,7 +41,7 @@ public class TruncatedMavenRepository extends MavenRepository {
     }
 
     @Override
-    public Collection<PluginHistory> listHudsonPlugins() throws PlexusContainerException, ComponentLookupException, IOException, UnsupportedExistingLuceneIndexException, AbstractArtifactResolutionException {
+    public Collection<PluginHistory> listHudsonPlugins() throws PlexusContainerException, ComponentLookupException, IOException, ExistingLuceneIndexMismatchException, AbstractArtifactResolutionException {
         List<PluginHistory> result = new ArrayList<PluginHistory>(base.listHudsonPlugins());
         return result.subList(0, Math.min(cap,result.size()));
     }

@@ -25,9 +25,10 @@ package org.jvnet.hudson.update_center;
 
 import hudson.util.VersionNumber;
 import net.sf.json.JSONObject;
+
 import org.apache.commons.codec.binary.Base64;
 import org.apache.maven.artifact.resolver.AbstractArtifactResolutionException;
-import org.sonatype.nexus.index.ArtifactInfo;
+import org.apache.maven.index.ArtifactInfo;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -121,9 +122,10 @@ public class MavenArtifact {
     /**
      * Computes the SHA1 signature of the file.
      */
-    public String getDigest() throws IOException {        
-        try (FileInputStream fin = new FileInputStream(resolve())) {
-            MessageDigest sig = MessageDigest.getInstance("SHA1");            
+    public String getDigest() throws IOException {
+        try {
+            MessageDigest sig = MessageDigest.getInstance("SHA1");
+            FileInputStream fin = new FileInputStream(resolve());
             byte[] buf = new byte[2048];
             int len;
             while ((len=fin.read(buf,0,buf.length))>=0)

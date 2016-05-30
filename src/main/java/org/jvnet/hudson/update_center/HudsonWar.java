@@ -24,10 +24,11 @@
 package org.jvnet.hudson.update_center;
 
 import hudson.util.VersionNumber;
-import org.sonatype.nexus.index.ArtifactInfo;
 
 import java.net.URL;
 import java.net.MalformedURLException;
+
+import org.apache.maven.index.ArtifactInfo;
 
 /**
  * @author Kohsuke Kawaguchi

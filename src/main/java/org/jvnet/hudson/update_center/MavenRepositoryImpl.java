@@ -24,11 +24,15 @@
 package org.jvnet.hudson.update_center;
 
 import hudson.util.VersionNumber;
+
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
+import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.store.FSDirectory;
+import org.apache.lucene.store.NoLockFactory;
+import org.apache.lucene.util.Version;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.factory.ArtifactFactory;
 import org.apache.maven.artifact.repository.ArtifactRepository;
@@ -38,6 +42,22 @@ import org.apache.maven.artifact.repository.layout.DefaultRepositoryLayout;
 import org.apache.maven.artifact.resolver.AbstractArtifactResolutionException;
 import org.apache.maven.artifact.resolver.ArtifactResolver;
 import org.apache.maven.artifact.transform.ArtifactTransformationManager;
+import org.apache.maven.index.ArtifactInfo;
+import org.apache.maven.index.FlatSearchRequest;
+import org.apache.maven.index.FlatSearchResponse;
+import org.apache.maven.index.Indexer;
+import org.apache.maven.index.MAVEN;
+import org.apache.maven.index.context.DefaultIndexingContext;
+import org.apache.maven.index.context.ExistingLuceneIndexMismatchException;
+import org.apache.maven.index.context.IndexCreator;
+import org.apache.maven.index.context.IndexUtils;
+import org.apache.maven.index.context.NexusAnalyzer;
+import org.apache.maven.index.context.NexusIndexWriter;
+import org.apache.maven.index.creator.JarFileContentsIndexCreator;
+import org.apache.maven.index.creator.MinimalArtifactInfoIndexCreator;
+import org.apache.maven.index.expr.SourcedSearchExpression;
+import org.apache.maven.index.updater.IndexDataReader;
+import org.apache.maven.index.updater.IndexDataReader.IndexDataReadResult;
 import org.apache.tools.ant.taskdefs.Expand;
 import org.codehaus.plexus.ContainerConfiguration;
 import org.codehaus.plexus.DefaultContainerConfiguration;
@@ -47,17 +67,39 @@ import org.codehaus.plexus.PlexusContainerException;
 import org.codehaus.plexus.classworlds.ClassWorld;
 import org.codehaus.plexus.component.repository.ComponentDescriptor;
 import org.codehaus.plexus.component.repository.exception.ComponentLookupException;
-import org.sonatype.nexus.index.ArtifactInfo;
-import org.sonatype.nexus.index.FlatSearchRequest;
-import org.sonatype.nexus.index.FlatSearchResponse;
-import org.sonatype.nexus.index.NexusIndexer;
-import org.sonatype.nexus.index.context.DefaultIndexingContext;
-import org.sonatype.nexus.index.context.IndexUtils;
-import org.sonatype.nexus.index.context.NexusAnalyzer;
-import org.sonatype.nexus.index.context.NexusIndexWriter;
-import org.sonatype.nexus.index.context.UnsupportedExistingLuceneIndexException;
-import org.sonatype.nexus.index.updater.IndexDataReader;
-import org.sonatype.nexus.index.updater.IndexDataReader.IndexDataReadResult;
+//import org.sonatype.nexus.index.ArtifactInfo;
+//import org.sonatype.nexus.index.FlatSearchRequest;
+//import org.sonatype.nexus.index.FlatSearchResponse;
+//import org.sonatype.nexus.index.NexusIndexer;
+//import org.sonatype.nexus.index.context.DefaultIndexingContext;
+//import org.sonatype.nexus.index.context.IndexUtils;
+//import org.sonatype.nexus.index.context.NexusAnalyzer;
+//import org.sonatype.nexus.index.context.NexusIndexWriter;
+//import org.sonatype.nexus.index.context.UnsupportedExistingLuceneIndexException;
+//import org.sonatype.nexus.index.updater.IndexDataReader;
+//import org.sonatype.nexus.index.updater.IndexDataReader.IndexDataReadResult;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -66,6 +108,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -82,7 +125,7 @@ import java.util.TreeMap;
  * @author Kohsuke Kawaguchi
  */
 public class MavenRepositoryImpl extends MavenRepository {
-    protected NexusIndexer indexer;
+    protected Indexer indexer;
     protected ArtifactFactory af;
     protected ArtifactResolver ar;
     protected List<ArtifactRepository> remoteRepositories = new ArrayList<ArtifactRepository>();
@@ -102,7 +145,7 @@ public class MavenRepositoryImpl extends MavenRepository {
         }
         componentDescriptor.setImplementationClass(DefaultArtifactTransformationManager.class);
 
-        indexer = plexus.lookup( NexusIndexer.class );
+        indexer = plexus.lookup( Indexer.class );
 
         af = plexus.lookup(ArtifactFactory.class);
         ar = plexus.lookup(ArtifactResolver.class);
@@ -136,25 +179,30 @@ public class MavenRepositoryImpl extends MavenRepository {
      * @param repository
      *      URL of the Maven repository. Used to resolve artifacts.
      */
-    public void addRemoteRepository(String id, File indexDirectory, URL repository) throws IOException, UnsupportedExistingLuceneIndexException {
-        indexer.addIndexingContext(id, id,null, indexDirectory,null,null, NexusIndexer.DEFAULT_INDEX);
+    public void addRemoteRepository(String id, File indexDirectory, URL repository) throws IOException, ExistingLuceneIndexMismatchException {
+    	indexer.createIndexingContext(id, id, null, indexDirectory, repository.toExternalForm(), null, false, false, DEFAULT_INDEX);
+
+    	// indexer.createIndexingContext(id, id,null, indexDirectory,null,null, DEFAULT_INDEX);
+        // addIndexingContext( String id, String repositoryId, File repository, File indexDirectory, String repositoryUrl, String indexUpdateUrl, List<? extends IndexCreator> indexers )
+
+        
         remoteRepositories.add(
                 arf.createArtifactRepository(id, repository.toExternalForm(),
                         new DefaultRepositoryLayout(), POLICY, POLICY));
     }
 
-    public void addRemoteRepository(String id, URL repository) throws IOException, UnsupportedExistingLuceneIndexException {
+    public void addRemoteRepository(String id, URL repository) throws IOException, ExistingLuceneIndexMismatchException {
         addRemoteRepository(id,new URL(repository,".index/nexus-maven-repository-index.gz"), repository);
     }
 
-    public void addRemoteRepository(String id, URL remoteIndex, URL repository) throws IOException, UnsupportedExistingLuceneIndexException {
+    public void addRemoteRepository(String id, URL remoteIndex, URL repository) throws IOException, ExistingLuceneIndexMismatchException {
         addRemoteRepository(id,loadIndex(id,remoteIndex), repository);
     }
 
     /**
      * Loads a remote repository index (.zip or .gz), convert it to Lucene index and return it.
      */
-    private File loadIndex(String id, URL url) throws IOException, UnsupportedExistingLuceneIndexException {
+    private File loadIndex(String id, URL url) throws IOException, ExistingLuceneIndexMismatchException {
         File dir = new File(new File(System.getProperty("java.io.tmpdir")), "maven-index/" + id);
         File local = new File(dir,"index"+getExtension(url));
         File expanded = new File(dir,"expanded");
@@ -179,13 +227,13 @@ public class MavenRepositoryImpl extends MavenRepository {
 
             if (url.toExternalForm().endsWith(".gz")) {
                 System.out.println("Reconstructing index from "+url);
-                FSDirectory directory = FSDirectory.getDirectory(expanded);
-                NexusIndexWriter w = new NexusIndexWriter(directory, new NexusAnalyzer(), true);
+                FSDirectory directory = FSDirectory.open(expanded, NoLockFactory.getNoLockFactory());
+                NexusIndexWriter w = new NexusIndexWriter(directory, new IndexWriterConfig(Version.LUCENE_36, new NexusAnalyzer()));
                 FileInputStream in = new FileInputStream(tmp);
                 try {
                     IndexDataReader dr = new IndexDataReader(in);
                     IndexDataReadResult result = dr.readIndex(w,
-                            new DefaultIndexingContext(id,id,null,expanded,null,null,NexusIndexer.DEFAULT_INDEX,true));
+                            new DefaultIndexingContext(id,id,null,expanded,null,null, DEFAULT_INDEX,true));
                 } finally {
                     IndexUtils.close(w);
                     IOUtils.closeQuietly(in);
@@ -224,11 +272,11 @@ public class MavenRepositoryImpl extends MavenRepository {
         return artifact.getFile();
     }
 
-    public Collection<PluginHistory> listHudsonPlugins() throws PlexusContainerException, ComponentLookupException, IOException, UnsupportedExistingLuceneIndexException, AbstractArtifactResolutionException {
+    public Collection<PluginHistory> listHudsonPlugins() throws PlexusContainerException, ComponentLookupException, IOException, ExistingLuceneIndexMismatchException, AbstractArtifactResolutionException {
         BooleanQuery q = new BooleanQuery();
         q.setMinimumNumberShouldMatch(1);
-        q.add(indexer.constructQuery(ArtifactInfo.PACKAGING,"hpi"), Occur.SHOULD);
-        q.add(indexer.constructQuery(ArtifactInfo.PACKAGING,"jpi"), Occur.SHOULD);
+        q.add(indexer.constructQuery(MAVEN.PACKAGING, new SourcedSearchExpression("hpi")), Occur.SHOULD);
+        q.add(indexer.constructQuery(MAVEN.PACKAGING, new SourcedSearchExpression("jpi")), Occur.SHOULD);
 
         FlatSearchRequest request = new FlatSearchRequest(q);
         FlatSearchResponse response = indexer.searchFlat(request);
@@ -270,8 +318,8 @@ public class MavenRepositoryImpl extends MavenRepository {
 
     private void listWar(TreeMap<VersionNumber, HudsonWar> r, String groupId, VersionNumber cap) throws IOException {
         BooleanQuery q = new BooleanQuery();
-        q.add(indexer.constructQuery(ArtifactInfo.GROUP_ID,groupId), Occur.MUST);
-        q.add(indexer.constructQuery(ArtifactInfo.PACKAGING,"war"), Occur.MUST);
+        q.add(indexer.constructQuery(MAVEN.GROUP_ID, new SourcedSearchExpression(groupId)), Occur.MUST);
+        q.add(indexer.constructQuery(MAVEN.PACKAGING, new SourcedSearchExpression("war")), Occur.MUST);
 
         FlatSearchRequest request = new FlatSearchRequest(q);
         FlatSearchResponse response = indexer.searchFlat(request);
@@ -317,4 +365,6 @@ public class MavenRepositoryImpl extends MavenRepository {
      * Hudson -> Jenkins cut-over version.
      */
     public static final VersionNumber CUT_OFF = new VersionNumber("1.395");
+    
+    public static final List<? extends IndexCreator> DEFAULT_INDEX = Arrays.<IndexCreator>asList(new MinimalArtifactInfoIndexCreator(), new JarFileContentsIndexCreator());
 }

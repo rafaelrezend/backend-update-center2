@@ -25,8 +25,9 @@ package org.jvnet.hudson.update_center;
 
 import hudson.util.VersionNumber;
 import net.sf.json.JSONObject;
+
 import org.apache.maven.artifact.resolver.AbstractArtifactResolutionException;
-import org.sonatype.nexus.index.ArtifactInfo;
+import org.apache.maven.index.ArtifactInfo;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -156,16 +157,16 @@ public class HPI extends MavenArtifact {
         public final boolean optional;
 
         public Dependency(String token) {
-            this.optional = token.endsWith(OPTIONAL_RESOLUTION);
+            this.optional = token.endsWith(OPTIONAL);
             if(optional)
-                token = token.substring(0, token.length()-OPTIONAL_RESOLUTION.length());
+                token = token.substring(0, token.length()-OPTIONAL.length());
 
             String[] pieces = token.split(":");
             name = pieces[0];
             version = pieces[1];
         }
 
-        private static final String OPTIONAL_RESOLUTION = ";resolution:=optional";
+        private static final String OPTIONAL = ";resolution:=optional";
 
         public JSONObject toJSON() {
             JSONObject o = new JSONObject();

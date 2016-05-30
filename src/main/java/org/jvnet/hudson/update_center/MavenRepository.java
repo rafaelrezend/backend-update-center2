@@ -1,11 +1,12 @@
 package org.jvnet.hudson.update_center;
 
 import hudson.util.VersionNumber;
+
 import org.apache.maven.artifact.resolver.AbstractArtifactResolutionException;
+import org.apache.maven.index.ArtifactInfo;
+import org.apache.maven.index.context.ExistingLuceneIndexMismatchException;
 import org.codehaus.plexus.PlexusContainerException;
 import org.codehaus.plexus.component.repository.exception.ComponentLookupException;
-import org.sonatype.nexus.index.ArtifactInfo;
-import org.sonatype.nexus.index.context.UnsupportedExistingLuceneIndexException;
 
 import java.io.File;
 import java.io.IOException;
@@ -26,12 +27,12 @@ public abstract class MavenRepository {
     /**
      * Discover all plugins from this Maven repository.
      */
-    public abstract Collection<PluginHistory> listHudsonPlugins() throws PlexusContainerException, ComponentLookupException, IOException, UnsupportedExistingLuceneIndexException, AbstractArtifactResolutionException;
+    public abstract Collection<PluginHistory> listHudsonPlugins() throws PlexusContainerException, ComponentLookupException, IOException, ExistingLuceneIndexMismatchException, AbstractArtifactResolutionException;
 
     /**
      * Discover all plugins from this Maven repository in order released, not using PluginHistory.
      */
-    public Map<Date,Map<String,HPI>> listHudsonPluginsByReleaseDate() throws PlexusContainerException, ComponentLookupException, IOException, UnsupportedExistingLuceneIndexException, AbstractArtifactResolutionException {
+    public Map<Date,Map<String,HPI>> listHudsonPluginsByReleaseDate() throws PlexusContainerException, ComponentLookupException, IOException, ExistingLuceneIndexMismatchException, AbstractArtifactResolutionException {
         Collection<PluginHistory> all = listHudsonPlugins();
 
         Map<Date, Map<String,HPI>> plugins = new TreeMap<Date, Map<String,HPI>>();
@@ -61,7 +62,7 @@ public abstract class MavenRepository {
      * find the HPI for the specified plugin
      * @return the found HPI or null
      */
-    public HPI findPlugin(String groupId, String artifactId, String version) throws PlexusContainerException, ComponentLookupException, IOException, UnsupportedExistingLuceneIndexException, AbstractArtifactResolutionException {
+    public HPI findPlugin(String groupId, String artifactId, String version) throws PlexusContainerException, ComponentLookupException, IOException, ExistingLuceneIndexMismatchException, AbstractArtifactResolutionException {
         Collection<PluginHistory> all = listHudsonPlugins();
 
         for (PluginHistory p : all) {
