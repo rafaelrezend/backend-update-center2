@@ -26,6 +26,7 @@ package org.jvnet.hudson.update_center;
 import hudson.util.VersionNumber;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
+
 import org.apache.commons.io.FileUtils;
 import org.kohsuke.args4j.ClassParser;
 import org.kohsuke.args4j.CmdLineException;
@@ -131,6 +132,12 @@ public class Main {
 
     @Option(name="-skip-release-history",usage="Skip generation of release history")
     public boolean skipReleaseHistory;
+    
+    @Option(name = "-repositoryId", usage = "Custom plugin repository ID. Requires '-repositoryURL' flag.", depends={"-repositoryURL"})
+    private String repositoryId = null;
+
+    @Option(name = "-repositoryURL", usage = "Custom plugin repository URL. Requires '-repositoryId' flag.", depends={"-repositoryId"})
+    private String repositoryURL = null;
 
     public Signer signer = new Signer();
 
@@ -233,16 +240,27 @@ public class Main {
     }
 
     protected MavenRepository createRepository() throws Exception {
-        MavenRepository repo = DefaultMavenRepositoryBuilder.createStandardInstance();
+	
+	MavenRepository repo;
+	
+	// Create a custom repository if 
+	if (repositoryId != null && repositoryURL != null)
+	    repo = DefaultMavenRepositoryBuilder.createCustomInstance(repositoryId, repositoryURL);
+	else
+	    repo = DefaultMavenRepositoryBuilder.createStandardInstance();
+	
         if (maxPlugins!=null)
             repo = new TruncatedMavenRepository(repo,maxPlugins);
+        
         if (capPlugin !=null || getCapCore()!=null) {
             VersionNumber vp = capPlugin==null ? ANY_VERSION : new VersionNumber(capPlugin);
             VersionNumber vc = getCapCore()==null ? ANY_VERSION : new VersionNumber(getCapCore());
             repo = new VersionCappedMavenRepository(repo, vp, vc);
         }
+        
         if (experimentalOnly)
             repo = new AlphaBetaOnlyRepository(repo,false);
+        
         if (noExperimental)
             repo = new AlphaBetaOnlyRepository(repo,true);
         return repo;
