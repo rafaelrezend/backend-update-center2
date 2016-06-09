@@ -21,12 +21,14 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.jvnet.hudson.update_center;
+package org.jvnet.hudson.update_center.wikiplugin;
 
 import java.io.IOException;
 import java.rmi.RemoteException;
 
 import javax.xml.rpc.ServiceException;
+
+import org.jvnet.hudson.update_center.WikiPage;
 
 import jenkins.plugins.confluence.soap.v1.RemotePage;
 
@@ -34,10 +36,10 @@ import jenkins.plugins.confluence.soap.v1.RemotePage;
  * Dummy class not to refer Confluence
  *
  */
-public class NoConfluenceV1PluginList extends ConfluenceV1PluginList
+public class NoWikiPluginList extends WikiPluginList
 {
-    public NoConfluenceV1PluginList() throws IOException, ServiceException
-    {
+    public NoWikiPluginList() throws IOException, ServiceException {
+	// No-op
     }
 
     @Override
@@ -45,24 +47,15 @@ public class NoConfluenceV1PluginList extends ConfluenceV1PluginList
         // No-op
     }
 
-    // @Override
-    // public WikiV1Page findNearest(String pluginArtifactId)
-    // throws RemoteException
-    // {
-    // return null;
-    // }
-
     @Override
     public String[] getLabels(RemotePage page) throws RemoteException
     {
-        // return new String[0];
         return null;
     }
 
     @Override
-    public WikiV1Page getPage(String url) throws RemoteException
+    public WikiPage getPage(String url) throws RemoteException
     {
-
         return null;
     }
 }

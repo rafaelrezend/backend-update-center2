@@ -44,6 +44,10 @@ import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 
 import org.apache.commons.io.FileUtils;
+import org.jvnet.hudson.update_center.wikiplugin.JenkinsConfluenceV1PluginList;
+import org.jvnet.hudson.update_center.wikiplugin.JenkinsConfluenceV2PluginList;
+import org.jvnet.hudson.update_center.wikiplugin.NoWikiPluginList;
+import org.jvnet.hudson.update_center.wikiplugin.WikiPluginList;
 import org.kohsuke.args4j.ClassParser;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
@@ -279,11 +283,8 @@ public class Main {
         if (core != null) {
             root.put("core", core);
         }
-        if (confluenceVersion == 1) {
-            root.put("plugins", buildPluginsV1(repo, latest));
-        } else {
-            root.put("plugins", buildPluginsV2(repo, latest));
-        }
+        
+        root.put("plugins", buildPlugins(repo, latest));
 
         root.put("id", id);
         if (connectionCheckUrl != null) {
@@ -363,14 +364,24 @@ public class Main {
      * @param repository
      * @param latest
      */
-    protected JSONObject buildPluginsV1(MavenRepository repository, LatestLinkBuilder latest) throws Exception {
-        ConfluenceV1PluginList cpl;
+    protected JSONObject buildPlugins(MavenRepository repository, LatestLinkBuilder latest) throws Exception {
+        WikiPluginList cpl;
 
-        if (nowiki) {
-            cpl = new NoConfluenceV1PluginList();
-        } else {
-            cpl = new ConfluenceV1PluginList(customWikiBaseUrl, customWikiSpaceName, customWikiPageTitle, wikiUser, wikiPassword);
+        // No WIKI at all
+        if (nowiki) 
+            cpl = new NoWikiPluginList();
+        
+        // With WIKI
+        else {
+            // With Jenkins Confluence version 1
+            if (confluenceVersion == 1)
+        	cpl = new JenkinsConfluenceV1PluginList(customWikiBaseUrl, customWikiSpaceName, customWikiPageTitle, wikiUser, wikiPassword);
+            
+            // With Jenkins Confluence version 2
+            else
+        	cpl = new JenkinsConfluenceV2PluginList(customWikiBaseUrl, customWikiSpaceName, customWikiPageTitle, wikiUser, wikiPassword);
         }
+        
         cpl.initialize();
 
         final boolean isVersionCappedRepository = isVersionCappedRepository(repository);
@@ -387,111 +398,7 @@ public class Main {
                 System.out.println(hpi.artifactId);
 
                 // Gather the plugin properties from the plugin file and the wiki
-                PluginV1 plugin = new PluginV1(hpi, cpl);
-
-                // Exclude plugins flagged as deprecated on the wiki
-                if (plugin.isDeprecated()) {
-                    System.out.println(String.format("=> Excluding %s as plugin is marked as deprecated on the wiki", hpi.artifactId));
-                    deprecatedCount++;
-                    continue;
-                }
-
-                System.out.println(
-                        plugin.page != null ? "=> " + plugin.page.getTitle() : "** No wiki page found");
-
-                final String givenUrl = plugin.getPomWikiUrl();
-                if (plugin.didWikiPageDownloadFail()) {
-                    System.out.println(String.format("=> Keeping %s as wiki page exists but there was a download failure: \"%s\"",
-                            hpi.artifactId, givenUrl));
-                } else {
-                    final String actualUrl = plugin.getWikiUrl();
-                    if (actualUrl.isEmpty()) {
-                        // When building older Update Centres (e.g. LTS releases), there will be a number of plugins
-                        // which
-                        // do not have wiki pages, even if the latest versions of those plugins *do* have wiki pages.
-                        // So here we keep the old behaviour: plugins without wiki pages are still kept.
-                        // This behaviour can be removed once we no longer generate UC files for LTS 1.596.x and older
-                        if (isVersionCappedRepository) {
-                            System.out.println(String.format("=> Keeping %s despite unknown/missing wiki URL: \"%s\"",
-                                    hpi.artifactId, givenUrl));
-                        } else {
-                            System.out.println(String.format("=> Excluding %s due to unknown/missing wiki URL: \"%s\"",
-                                    hpi.artifactId, givenUrl));
-                            missingWikiUrlCount++;
-                            continue;
-                        }
-                    }
-                    if (!actualUrl.equals(givenUrl)) {
-                        System.out.println(String.format("=> Wiki URL was rewritten from \"%s\" to \"%s\"", givenUrl, actualUrl));
-                    }
-                }
-
-                JSONObject json = plugin.toJSON();
-                System.out.println("=> " + json);
-                plugins.put(plugin.artifactId, json);
-                latest.add(plugin.artifactId + ".hpi", plugin.latest.getURL().getPath());
-
-                if (download != null) {
-                    for (HPI v : hpi.artifacts.values()) {
-                        stage(v, new File(download, v.getRelativePath()));
-                    }
-                    if (!hpi.artifacts.isEmpty() && !nosymlinks) {
-                        createLatestSymlink(hpi, plugin.latest);
-                    }
-                }
-
-                if (wwwDownload != null) {
-                    String permalink = String.format("/latest/%s.hpi", plugin.artifactId);
-                    buildIndex(new File(wwwDownload, "plugins/" + hpi.artifactId), hpi.artifactId, hpi.artifacts.values(), permalink);
-                }
-
-                validCount++;
-            } catch (IOException e) {
-                e.printStackTrace();
-                // move on to the next plugin
-            }
-        }
-
-        if (pluginCountTxt != null) {
-            FileUtils.writeStringToFile(pluginCountTxt, String.valueOf(validCount));
-        }
-        System.out.println("Total " + validCount + " plugins listed.");
-        System.out.println("Excluded " + deprecatedCount + " plugins marked as deprecated on the wiki.");
-        System.out.println("Excluded " + missingWikiUrlCount + " plugins without a valid wiki URL.");
-        return plugins;
-    }
-
-    /**
-     * Build JSON for the plugin list.
-     *
-     * @param repository
-     * @param latest
-     */
-    protected JSONObject buildPluginsV2(MavenRepository repository, LatestLinkBuilder latest) throws Exception {
-        ConfluenceV2PluginList cpl;
-
-        if (nowiki) {
-            cpl = new NoConfluenceV2PluginList();
-        } else {
-            cpl = new ConfluenceV2PluginList(customWikiBaseUrl, customWikiSpaceName, customWikiPageTitle, wikiUser, wikiPassword);
-        }
-        cpl.initialize();
-
-        final boolean isVersionCappedRepository = isVersionCappedRepository(repository);
-
-        int validCount = 0;
-        int deprecatedCount = 0;
-        int missingWikiUrlCount = 0;
-
-        JSONObject plugins = new JSONObject();
-
-        System.out.println("Gathering list of plugins and versions from the maven repo...");
-        for (PluginHistory hpi : repository.listHudsonPlugins()) {
-            try {
-                System.out.println(hpi.artifactId);
-
-                // Gather the plugin properties from the plugin file and the wiki
-                PluginV2 plugin = new PluginV2(hpi, cpl);
+                Plugin plugin = new Plugin(hpi, cpl);
 
                 // Exclude plugins flagged as deprecated on the wiki
                 if (plugin.isDeprecated()) {
@@ -612,22 +519,30 @@ public class Main {
      */
     protected JSONObject buildFullReleaseHistory(MavenRepository repo) throws Exception {
         JSONObject rhRoot = new JSONObject();
-        if (confluenceVersion == 1) {
-            rhRoot.put("releaseHistory", buildReleaseHistoryV1(repo));
-        } else {
-            rhRoot.put("releaseHistory", buildReleaseHistoryV2(repo));
-        }
+        rhRoot.put("releaseHistory", buildReleaseHistory(repo));
 
         return rhRoot;
     }
 
-    protected JSONArray buildReleaseHistoryV1(MavenRepository repository) throws Exception {
-        ConfluenceV1PluginList cpl;
-        if (nowiki) {
-            cpl = new NoConfluenceV1PluginList();
-        } else {
-            cpl = new ConfluenceV1PluginList(customWikiBaseUrl, customWikiSpaceName, customWikiPageTitle, wikiUser, wikiPassword);
+    protected JSONArray buildReleaseHistory(MavenRepository repository) throws Exception {
+	
+	WikiPluginList cpl;
+
+        // No WIKI at all
+        if (nowiki) 
+            cpl = new NoWikiPluginList();
+        
+        // With WIKI
+        else {
+            // With Jenkins Confluence version 1
+            if (confluenceVersion == 1)
+        	cpl = new JenkinsConfluenceV1PluginList(customWikiBaseUrl, customWikiSpaceName, customWikiPageTitle, wikiUser, wikiPassword);
+            
+            // With Jenkins Confluence version 2
+            else
+        	cpl = new JenkinsConfluenceV2PluginList(customWikiBaseUrl, customWikiSpaceName, customWikiPageTitle, wikiUser, wikiPassword);
         }
+	
         cpl.initialize();
 
         JSONArray releaseHistory = new JSONArray();
@@ -641,66 +556,7 @@ public class Main {
                 HPI h = rel.getValue();
                 JSONObject o = new JSONObject();
                 try {
-                    PluginV1 plugin = new PluginV1(h, cpl);
-
-                    String title = plugin.getName();
-                    if ((title == null) || (title.equals(""))) {
-                        title = h.artifact.artifactId;
-                    }
-
-                    o.put("title", title);
-                    o.put("gav", h.artifact.groupId + ':' + h.artifact.artifactId + ':' + h.artifact.version);
-                    o.put("timestamp", h.getTimestamp());
-                    o.put("wiki", plugin.getWikiUrl());
-
-                    System.out.println("\t" + title + ":" + h.version);
-                } catch (IOException e) {
-                    System.out.println("Failed to resolve plugin " + h.artifact.artifactId + " so using defaults");
-                    o.put("title", h.artifact.artifactId);
-                    o.put("wiki", "");
-                }
-
-                PluginHistory history = h.history;
-                if (history.latest() == h) {
-                    o.put("latestRelease", true);
-                }
-                if (history.first() == h) {
-                    o.put("firstRelease", true);
-                }
-                o.put("version", h.version);
-
-                releases.add(o);
-            }
-            JSONObject d = new JSONObject();
-            d.put("date", relDate);
-            d.put("releases", releases);
-            releaseHistory.add(d);
-        }
-
-        return releaseHistory;
-    }
-
-    protected JSONArray buildReleaseHistoryV2(MavenRepository repository) throws Exception {
-        ConfluenceV2PluginList cpl;
-        if (nowiki) {
-            cpl = new NoConfluenceV2PluginList();
-        } else {
-            cpl = new ConfluenceV2PluginList(customWikiBaseUrl, customWikiSpaceName, customWikiPageTitle, wikiUser, wikiPassword);
-        }
-        cpl.initialize();
-
-        JSONArray releaseHistory = new JSONArray();
-        for (Map.Entry<Date, Map<String, HPI>> relsOnDate : repository.listHudsonPluginsByReleaseDate().entrySet()) {
-            String relDate = MavenArtifact.getDateFormat().format(relsOnDate.getKey());
-            System.out.println("Releases on " + relDate);
-
-            JSONArray releases = new JSONArray();
-
-            for (Map.Entry<String, HPI> rel : relsOnDate.getValue().entrySet()) {
-                HPI h = rel.getValue();
-                JSONObject o = new JSONObject();
-                try {
-                    PluginV2 plugin = new PluginV2(h, cpl);
+                    Plugin plugin = new Plugin(h, cpl);
 
                     String title = plugin.getName();
                     if ((title == null) || (title.equals(""))) {

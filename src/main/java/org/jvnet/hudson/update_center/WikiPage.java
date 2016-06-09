@@ -9,12 +9,12 @@ import jenkins.plugins.confluence.soap.v1.RemotePage;
 /**
  * @author Kohsuke Kawaguchi
  */
-public class WikiV1Page implements Serializable {
+public class WikiPage implements Serializable {
     public final RemotePage page;
 
     public final RemoteLabel[] labels;
 
-    public WikiV1Page(RemotePage page, RemoteLabel[] labels) {
+    public WikiPage(RemotePage page, RemoteLabel[] labels) {
         this.labels = labels;
         this.page = page;
     }

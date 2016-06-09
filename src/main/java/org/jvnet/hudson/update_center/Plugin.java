@@ -48,6 +48,8 @@ import org.dom4j.DocumentFactory;
 import org.dom4j.Element;
 import org.dom4j.Node;
 import org.dom4j.io.SAXReader;
+import org.jvnet.hudson.update_center.wikiplugin.JenkinsConfluenceV1PluginList;
+import org.jvnet.hudson.update_center.wikiplugin.WikiPluginList;
 import org.sonatype.nexus.index.ArtifactInfo;
 
 /**
@@ -55,7 +57,7 @@ import org.sonatype.nexus.index.ArtifactInfo;
  *
  * @author Kohsuke Kawaguchi
  */
-public class PluginV1 {
+public class Plugin {
     /**
      * Plugin artifact ID.
      */
@@ -75,7 +77,7 @@ public class PluginV1 {
      * Confluence page of this plugin in Wiki.
      * Null if we couldn't find it.
      */
-    public final WikiV1Page page;
+    public final WikiPage page;
 
     private boolean pageDownloadFailed;
 
@@ -99,7 +101,7 @@ public class PluginV1 {
      */
     private final Document pom;
 
-    public PluginV1(String artifactId, HPI latest, HPI previous, ConfluenceV1PluginList cpl) throws IOException {
+    public Plugin(String artifactId, HPI latest, HPI previous, WikiPluginList cpl) throws IOException {
         this.artifactId = artifactId;
         this.latest = latest;
         this.previous = previous;
@@ -108,7 +110,7 @@ public class PluginV1 {
         page = findPage(cpl);
     }
 
-    public PluginV1(PluginHistory hpi, ConfluenceV1PluginList cpl) throws IOException {
+    public Plugin(PluginHistory hpi, WikiPluginList cpl) throws IOException {
         artifactId = hpi.artifactId;
         List<HPI> versions = new ArrayList<HPI>();
         for (HPI h : hpi.artifacts.values()) {
@@ -131,7 +133,7 @@ public class PluginV1 {
         page = findPage(cpl);
     }
 
-    public PluginV1(HPI hpi, ConfluenceV1PluginList cpl) throws IOException {
+    public Plugin(HPI hpi, WikiPluginList cpl) throws IOException {
         this(hpi.artifact.artifactId, hpi, null, cpl);
     }
 
@@ -185,7 +187,7 @@ public class PluginV1 {
      * <p>
      * First we'll try to parse POM and obtain the URL. If that fails, find the nearest name from the children list.
      */
-    private WikiV1Page findPage(ConfluenceV1PluginList cpl) throws IOException {
+    private WikiPage findPage(WikiPluginList cpl) throws IOException {
         // Check whether the plugin has a URL defined
         String url = getPomWikiUrl();
         if (url == null) {
@@ -442,11 +444,11 @@ public class PluginV1 {
 
     static {
         try {
-            OVERRIDES.load(PluginV1.class.getClassLoader().getResourceAsStream("wiki-overrides.properties"));
+            OVERRIDES.load(Plugin.class.getClassLoader().getResourceAsStream("wiki-overrides.properties"));
         } catch (IOException e) {
             throw new Error(e);
         }
     }
 
-    private static final Logger LOGGER = Logger.getLogger(PluginV1.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(Plugin.class.getName());
 }
