@@ -138,8 +138,8 @@ public class Main {
     @Option(name = "-includeSnapshots", usage = "Include SNAPSHOT builds.")
     public boolean includeSnapshots;
 
-    @Option(name = "-nowiki", usage = "Do not refer wiki.jenkins-ci.org to retrieve plugin information.")
-    public boolean nowiki;
+    @Option(name = "-noWiki", usage = "Do not refer wiki.jenkins-ci.org to retrieve plugin information.")
+    public boolean noWiki;
 
     // TODO use these new options
     @Option(name = "-customWikiBaseUrl", usage = "Alternate wiki baseUrl.")
@@ -196,9 +196,6 @@ public class Main {
     @Option(name = "-skip-release-history", usage = "Skip generation of release history")
     public boolean skipReleaseHistory;
     
-    @Option(name="-no-wiki",usage="Do not fetch plugin Wiki page")
-    public boolean noWiki;
-
     public Signer signer = new Signer();
 
     public static final String EOL = System.getProperty("line.separator");
@@ -371,7 +368,7 @@ public class Main {
         WikiPluginList cpl;
 
         // No WIKI at all
-        if (nowiki) 
+        if (noWiki) 
             cpl = new NoWikiPluginList();
         
         // With WIKI
@@ -539,7 +536,7 @@ public class Main {
 	WikiPluginList cpl;
 
         // No WIKI at all
-        if (nowiki) 
+        if (noWiki) 
             cpl = new NoWikiPluginList();
         
         // With WIKI
