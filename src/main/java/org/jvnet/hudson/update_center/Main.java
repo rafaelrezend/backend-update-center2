@@ -195,6 +195,9 @@ public class Main {
 
     @Option(name = "-skip-release-history", usage = "Skip generation of release history")
     public boolean skipReleaseHistory;
+    
+    @Option(name="-no-wiki",usage="Do not fetch plugin Wiki page")
+    public boolean noWiki;
 
     public Signer signer = new Signer();
 
@@ -411,29 +414,37 @@ public class Main {
                         plugin.page != null ? "=> " + plugin.page.getTitle() : "** No wiki page found");
 
                 final String givenUrl = plugin.getPomWikiUrl();
-                if (plugin.didWikiPageDownloadFail()) {
-                    System.out.println(String.format("=> Keeping %s as wiki page exists but there was a download failure: \"%s\"",
-                            hpi.artifactId, givenUrl));
-                } else {
-                    final String actualUrl = plugin.getWikiUrl();
-                    if (actualUrl.isEmpty()) {
-                        // When building older Update Centres (e.g. LTS releases), there will be a number of plugins
-                        // which
-                        // do not have wiki pages, even if the latest versions of those plugins *do* have wiki pages.
-                        // So here we keep the old behaviour: plugins without wiki pages are still kept.
-                        // This behaviour can be removed once we no longer generate UC files for LTS 1.596.x and older
-                        if (isVersionCappedRepository) {
-                            System.out.println(String.format("=> Keeping %s despite unknown/missing wiki URL: \"%s\"",
-                                    hpi.artifactId, givenUrl));
-                        } else {
-                            System.out.println(String.format("=> Excluding %s due to unknown/missing wiki URL: \"%s\"",
-                                    hpi.artifactId, givenUrl));
-                            missingWikiUrlCount++;
-                            continue;
+                
+                if (givenUrl == null || givenUrl.isEmpty()) {
+                    System.out.println(String.format("=> No URL documentation provided for %s", hpi.artifactId));
+                    continue;
+                }
+                
+                // Only check the WikiUrl if a Wiki is meant to be provided. Otherwise, a non-empty POM URL is sufficient.
+                if (!noWiki) {
+                    if (plugin.didWikiPageDownloadFail()) {
+                        System.out.println(String.format("=> Keeping %s as wiki page exists but there was a download failure: \"%s\"",
+                                hpi.artifactId, givenUrl));
+                    } else {
+                        final String actualUrl = plugin.getWikiUrl();
+                        if (actualUrl.isEmpty()) {
+                            // When building older Update Centres (e.g. LTS releases), there will be a number of plugins which
+                            // do not have wiki pages, even if the latest versions of those plugins *do* have wiki pages.
+                            // So here we keep the old behaviour: plugins without wiki pages are still kept.
+                            // This behaviour can be removed once we no longer generate UC files for LTS 1.596.x and older
+                            if (isVersionCappedRepository) {
+                                System.out.println(String.format("=> Keeping %s despite unknown/missing wiki URL: \"%s\"",
+                                        hpi.artifactId, givenUrl));
+                            } else {
+                                System.out.println(String.format("=> Excluding %s due to unknown/missing wiki URL: \"%s\"",
+                                        hpi.artifactId, givenUrl));
+                                missingWikiUrlCount++;
+                                continue;
+                            }
                         }
-                    }
-                    if (!actualUrl.equals(givenUrl)) {
-                        System.out.println(String.format("=> Wiki URL was rewritten from \"%s\" to \"%s\"", givenUrl, actualUrl));
+                        if (!actualUrl.equals(givenUrl)) {
+                            System.out.println(String.format("=> Wiki URL was rewritten from \"%s\" to \"%s\"", givenUrl, actualUrl));
+                        }
                     }
                 }
 
@@ -525,7 +536,6 @@ public class Main {
     }
 
     protected JSONArray buildReleaseHistory(MavenRepository repository) throws Exception {
-	
 	WikiPluginList cpl;
 
         // No WIKI at all

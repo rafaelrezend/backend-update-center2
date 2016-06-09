@@ -1,6 +1,20 @@
 package org.jvnet.hudson.update_center;
 
 import static java.security.Security.addProvider;
+import net.sf.json.JSONArray;
+import net.sf.json.JSONObject;
+
+import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.io.output.NullOutputStream;
+import org.apache.commons.io.output.TeeOutputStream;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.openssl.PEMReader;
+import org.jvnet.hudson.crypto.CertificateUtil;
+import org.jvnet.hudson.crypto.SignatureOutputStream;
+import org.kohsuke.args4j.CmdLineException;
+import org.kohsuke.args4j.CmdLineParser;
+import org.kohsuke.args4j.Option;
+import org.mortbay.util.QuotedStringTokenizer;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -24,21 +38,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
-
-import org.apache.commons.codec.binary.Base64;
-import org.apache.commons.io.output.NullOutputStream;
-import org.apache.commons.io.output.TeeOutputStream;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.bouncycastle.openssl.PEMReader;
-import org.jvnet.hudson.crypto.CertificateUtil;
-import org.jvnet.hudson.crypto.SignatureOutputStream;
-import org.kohsuke.args4j.CmdLineException;
-import org.kohsuke.args4j.CmdLineParser;
-import org.kohsuke.args4j.Option;
-import org.mortbay.util.QuotedStringTokenizer;
 
 /**
  * @author Kohsuke Kawaguchi
@@ -129,9 +128,11 @@ public class Signer {
         if (canonical != null) {
             raw = new FileOutputStream(canonical);
         }
-        sg = new SignatureGenerator(signer, key);
-        o.writeCanonical(new OutputStreamWriter(new TeeOutputStream(sg.getOut(), raw), "UTF-8")).close();
-        sg.addRecord(sign, "correct_");
+        sg = new SignatureGenerator(signer, key);        
+        try(OutputStreamWriter osw = new OutputStreamWriter(new TeeOutputStream(sg.getOut(),raw),"UTF-8")) {            
+            o.writeCanonical(osw);
+        }
+        sg.addRecord(sign,"correct_");
 
         // and certificate chain
         JSONArray a = new JSONArray();

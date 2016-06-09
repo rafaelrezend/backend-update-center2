@@ -24,6 +24,17 @@
 package org.jvnet.hudson.update_center;
 
 import java.io.File;
+import net.sf.json.JSONArray;
+import net.sf.json.JSONObject;
+import org.apache.commons.lang.StringEscapeUtils;
+import org.dom4j.Document;
+import org.dom4j.DocumentException;
+import org.dom4j.DocumentFactory;
+import org.dom4j.Element;
+import org.dom4j.Node;
+import org.dom4j.io.SAXReader;
+import org.sonatype.nexus.index.ArtifactInfo;
+
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -39,18 +50,7 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import net.sf.json.JSONArray;
-import net.sf.json.JSONObject;
-
-import org.dom4j.Document;
-import org.dom4j.DocumentException;
-import org.dom4j.DocumentFactory;
-import org.dom4j.Element;
-import org.dom4j.Node;
-import org.dom4j.io.SAXReader;
-import org.jvnet.hudson.update_center.wikiplugin.JenkinsConfluenceV1PluginList;
 import org.jvnet.hudson.update_center.wikiplugin.WikiPluginList;
-import org.sonatype.nexus.index.ArtifactInfo;
 
 /**
  * An entry of a plugin in the update center metadata.
@@ -105,9 +105,9 @@ public class Plugin {
         this.artifactId = artifactId;
         this.latest = latest;
         this.previous = previous;
-        xmlReader = createXmlReader();
-        pom = readPOM();
-        page = findPage(cpl);
+        this.xmlReader = createXmlReader();
+        this.pom = readPOM();
+        this.page = cpl != null ? findPage(cpl) : null;
     }
 
     public Plugin(PluginHistory hpi, WikiPluginList cpl) throws IOException {
@@ -128,9 +128,9 @@ public class Plugin {
         // Doublecheck that latest-by-version is also latest-by-date:
         checkLatestDate(versions, latest);
 
-        xmlReader = createXmlReader();
-        pom = readPOM();
-        page = findPage(cpl);
+        this.xmlReader = createXmlReader();
+        this.pom = readPOM();
+        this.page = cpl != null ? findPage(cpl) : null;
     }
 
     public Plugin(HPI hpi, WikiPluginList cpl) throws IOException {
@@ -310,6 +310,10 @@ public class Plugin {
         }
 
         String excerpt = m.group(1);
+
+        // escape malicious HTML
+        excerpt = StringEscapeUtils.escapeHtml(excerpt);
+
         String oneLiner = NEWLINE_PATTERN.matcher(excerpt).replaceAll(" ");
         excerpt = HYPERLINK_PATTERN.matcher(oneLiner).replaceAll("<a href='$2'>$1</a>");
         if (latest.isAlphaOrBeta()) {
