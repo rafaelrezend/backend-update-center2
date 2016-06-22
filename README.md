@@ -100,7 +100,7 @@ Arguments
 		* repositoryName and remoteIndex is ignored.
 * -includeSnapshots
 	* Include releases as well as snapshots found in hpiDirectory.
-* -nowiki
+* -noWiki
 	* Does not refer http://wiki.jenkins-ci.org/
 	* Information in pom files are trusted.
 * -download
