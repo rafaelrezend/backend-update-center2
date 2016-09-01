@@ -410,11 +410,15 @@ public class Main {
                 System.out.println(
                         plugin.page != null ? "=> " + plugin.page.getTitle() : "** No wiki page found");
 
-                final String givenUrl = plugin.getPomWikiUrl();
+                String givenUrl = plugin.getPomWikiUrl();
                 
-                if (givenUrl == null || givenUrl.isEmpty()) {
+                if (givenUrl == null) {
+                  System.out.println(String.format("=> URL documentation for %s is null", hpi.artifactId));
+                  // Initializes with empty for safety, because no URL should be still accepted by the update center.
+                  givenUrl = "";
+                } else if (givenUrl.isEmpty()) {
+                    // Empty URL is acceptable. Only notify user.
                     System.out.println(String.format("=> No URL documentation provided for %s", hpi.artifactId));
-                    continue;
                 }
                 
                 // Only check the WikiUrl if a Wiki is meant to be provided. Otherwise, a non-empty POM URL is sufficient.

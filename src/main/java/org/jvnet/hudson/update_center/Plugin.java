@@ -387,6 +387,13 @@ public class Plugin {
                 json.put("labels", labelList);
             }
         }
+        // if WikiPage is null, use whatever is in the pom.url tag
+        else {
+          String url = getPomWikiUrl();
+          if (url != null && !url.isEmpty())
+            json.put("wiki", url);
+        }
+        
         String scm = getScmHost();
         if (scm != null) {
             json.put("scm", scm);
